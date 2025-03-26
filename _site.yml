@@ -12,4 +12,5 @@ navbar:
         href: https://jsc370.github.io/JSC370-2025/
 output:
   html_document:
-    theme: cosmo
+    prettydoc::html_pretty:
+      theme: leonids

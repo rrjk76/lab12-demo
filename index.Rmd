@@ -1,6 +1,6 @@
 ---
 title: "JSC370 Final Project"
-author: "Rebecca"
+author: "Rebecca Kong"
 output: 
     html_document:
         toc: TRUE
@@ -8,4 +8,155 @@ output:
 ---
 
 This is my JSC370 Final Project website
+
+
+```{r setup, message=FALSE, echo=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(plotly)
+library(widgetframe)
+library(tidytext)
+
+# INITALIZE CODE CHUNK OPTIONS
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  eval=TRUE,
+  echo = TRUE,
+  cache = FALSE,
+  fig.width = 7, 
+  fig.align = 'center',
+  fig.asp = 0.618,
+  out.width = "700px",
+  class.source = "code-r")
+```
+
+```{r loading, message=FALSE, echo=FALSE, warning=FALSE}
+sb_locs <- read_csv("https://raw.githubusercontent.com/JSC370/JSC370-2025/refs/heads/main/data/starbucks/starbucks-locations.csv")
+
+sb_nutr <- read_csv("https://raw.githubusercontent.com/JSC370/JSC370-2025/refs/heads/main/data/starbucks/starbucks-menu-nutrition.csv")
+
+usa_pop <- read_csv("https://raw.githubusercontent.com/JSC370/JSC370-2025/refs/heads/main/data/starbucks/us_state_pop.csv")
+
+usa_states<-read_csv("https://raw.githubusercontent.com/JSC370/JSC370-2025/refs/heads/main/data/starbucks/states.csv")
+```
+
+
+<br>
+
+# Interactive Visualizations
+
+## Showcasing Plots {.tabset}
+
+### Figure 1 - Scatterplot
+```{r figure1, message=FALSE, echo=FALSE, warning=FALSE}
+sb_usa <- sb_locs |> filter(Country == "US")
+
+sb_locs_state <- sb_usa |>
+  group_by("State/Province") |>
+  rename(state = "State/Province") |>
+  group_by(state) |>
+  summarize(n_stores = n())
+
+# need state abbreviations
+usa_pop_abbr <- 
+  full_join(usa_pop, usa_states,
+            by = join_by(state == State)
+            ) 
+  
+sb_locs_state <- full_join(sb_locs_state, usa_pop_abbr,
+                           by = join_by(state == Abbreviation))
+
+
+p1 <- ggplot(sb_locs_state, aes(x = population, y = n_stores,
+                                colour = state)) +
+  geom_point(alpha = 0.8) +
+  theme_bw() 
+
+
+ggplotly(p1)
+
+```
+
+
+### Figure 2 - Histogram
+```{r figure2, message=FALSE, echo=FALSE, warning=FALSE}
+p2 <- ggplot(sb_nutr, aes(x = Calories, fill = Category)) +
+  geom_histogram(alpha = 0.6) +
+  theme_bw() 
+
+ggplotly(p2)
+```
+
+
+## Individual Plot - Flipped Bar Plot
+```{r figure3, message=FALSE, echo=FALSE, warning=FALSE}
+p3 <- sb_nutr |> 
+  unnest_tokens(word, Item, token = "words") |>
+  count(word, sort = T) |>
+  head(20) |>
+  ggplot(aes(fct_reorder(word, n), n)) +
+  geom_col() +
+  coord_flip() +
+  theme_bw()
+
+ggplotly(p3)
+```
+
+## Showcasing More Plots {.tabset}
+
+### Scatterplots
+```{r figure54, message=FALSE, echo=FALSE, warning=FALSE}
+sb_nutr |>
+  plot_ly(x = ~Calories, y = ~`Carb. (g)`, 
+          type = "scatter", mode = "markers", color = ~Category)
+topwords <- sb_nutr |> 
+  unnest_tokens(word, Item, token = "words") |>
+  group_by(word) |>
+  summarise(word_frequency = n()) |>
+  arrange(across(word_frequency, desc)) |>
+  head(10)
+  
+
+sb_nutr |> 
+  unnest_tokens(word, Item, token = "words") |>
+  filter(word %in% topwords$word) |>
+  plot_ly(
+    x = ~Calories,
+    y = ~`Carb. (g)`,
+    type = "scatter", 
+    mode = "markers",
+    color = ~Category,
+    hoverinfo  = "text",
+    text = ~paste0("Item: ", word)
+  ) |>
+  layout(
+    title = "Cal vs Carbs",
+    xaxis = list(title = "Calories"),
+    yaxis  = list(title = "Carbs"),
+    hovermode = "compare"
+    
+  )
+```
+
+### Boxplot
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+sb_nutr_long <- sb_nutr |>
+  unnest_tokens(word, Item, token = "words") |>
+  filter(word %in% topwords$word) |>
+  pivot_longer(cols = c(Calories, `Fat (g)`, `Carb. (g)`,
+                        `Fiber (g)`, `Protein (g)`), names_to = "Nutrient", values_to = "value")
+
+
+plot_ly(data = sb_nutr_long, 
+        x = ~word,
+        y = ~value, 
+        color = ~Nutrient,
+        type = "box" ) |>
+  layout(
+    title = "Nutrient values for the top 10 word items",
+    xaxis = list(title = "Item word"),
+    yaxis = list(title = "Nutritional Value")
+  )
+```
 
